@@ -1,0 +1,88 @@
+<?php
+
+namespace App\Controllers;
+
+use App\Controllers\BaseController;
+use App\models\ApiModel;
+use App\models\UserModel;
+use App\models\PlanModel;
+   //     parse_str($_SERVER['QUERY_STRING'],$_GET);
+    // //    $key =  $_GET['key'];
+    // //    $name =  $_GET['name'];
+
+class Api extends BaseController
+{
+    public function index()
+    {
+        $benchmark = \Config\Services::timer();
+        $umodel = new UserModel();
+        $pmodel = new PlanModel();
+        $amodel = new Apimodel();
+ 
+       if(isset($_GET['name']) && isset($_GET['key']) && $_GET['key'] != '' && $_GET['name'] != ''){
+           $benchmark->start('q');
+           $name = $_GET['name'];
+           $key = $_GET['key'];
+        //    check api key first
+           $data =  $umodel->where("user_api_key",$key)->first();
+           if($data)
+           {
+     // CONTINUE WITH DATA PROCESSING
+            $membership = $data['user_member_type'];
+            $calls = $data['user_calls'];
+            //  check the calls if they are in range 
+            $ddata = $pmodel->where("plan_id",$membership)->first();
+                if($data)
+                {
+                    if($calls<$ddata['plan_limit'])
+                     {
+                    //     we continue to checking the name
+                    $arr = array('first_name' => $name, 'second_name' => $name);
+                    $ndata = $amodel->where('first_name' ,$name)->orLike('first_name' ,$name)->first();
+                    $benchmark->stop('q');
+                        //  calculate the time 
+                        $tstart = $benchmark->getTimers()['q']['start'];
+                        $tend = $benchmark->getTimers()['q']['end'];
+                        if($ndata){
+                                $ndata += array("samples" => count($amodel->findall()),"time" => $tend-$tstart);
+                                //   we need to add one to the user calls table\
+                                            $ncalls = $calls + 1;
+                                            $updata = [
+                                                'user_calls' => $ncalls
+                                            ];
+                                            $umodel->update($data['user_id'],$updata);
+                                // after we add now lets give the user data after long troll
+                                header('Content-Type: application/json');
+                                echo json_encode($ndata,JSON_PRETTY_PRINT);
+                                    
+                               
+                            } else{
+                                die("sorry name not found");
+                            }
+                        
+                     }else{
+                         die("out of Credits");
+                     }
+                }
+                else {
+                    echo "your plan was not found kindly subscribe to plan or contact admin";
+                }
+
+               
+                
+
+
+           }else{
+               die("invalid key");
+           }
+
+
+       }
+       else{
+           echo "please provide enough info in the url";
+       }
+        
+    }
+    
+    
+}
